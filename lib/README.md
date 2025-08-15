@@ -1,100 +1,170 @@
-# Flutter App Architecture
+# Flutter MVVM Architecture
 
-This document describes the folder structure and architecture of the Flutter app.
+This Flutter app follows the MVVM (Model-View-ViewModel) architecture pattern, similar to Swift MVVM practices.
 
-## Folder Structure
+## Architecture Overview
+
+### 📁 Project Structure
 
 ```
 lib/
-├── core/                           # Core app functionality
-│   ├── constants/                  # App-wide constants
-│   │   └── app_constants.dart      # Colors, dimensions, text styles
-│   └── theme/                      # App theming
-│       └── app_theme.dart          # Theme configuration
-├── features/                       # Feature-based modules
-│   ├── home/                       # Home feature
-│   │   └── presentation/           # UI layer
-│   │       ├── pages/              # Full pages
-│   │       │   └── home_page.dart  # Home page
-│   │       └── widgets/            # Feature-specific widgets
-│   │           └── home_widgets.dart
-│   └── search/                     # Search feature
-│       └── presentation/           # UI layer
-│           ├── pages/              # Full pages
-│           │   └── search_page.dart # Search page
-│           └── widgets/            # Feature-specific widgets
-│               └── search_widgets.dart
-├── models/                         # Data models
-│   └── search_result.dart          # Search result model
-├── navigation/                     # Navigation components
-│   └── main_tab_bar.dart          # Main tab navigation
-├── services/                       # External services
-│   └── api_service.dart           # API service layer
-├── shared/                         # Shared components
-│   └── widgets/                    # Reusable widgets
-│       └── common_widgets.dart     # Loading, error, empty state widgets
-├── utils/                          # Utility functions
-│   └── helpers.dart               # Helper functions
-└── main.dart                      # App entry point
+├── core/
+│   ├── base/
+│   │   ├── base_view_model.dart      # Base ViewModel class
+│   │   └── base_repository.dart      # Base repository interfaces
+│   ├── di/
+│   │   └── service_locator.dart      # Dependency injection setup
+│   ├── constants/
+│   ├── theme/
+│   └── utils/
+├── features/
+│   └── home/
+│       ├── data/
+│       │   └── repositories/
+│       │       └── post_repository_impl.dart
+│       ├── domain/
+│       │   ├── repositories/
+│       │   │   └── post_repository.dart
+│       │   └── usecases/
+│       │       ├── get_posts_usecase.dart
+│       │       ├── like_post_usecase.dart
+│       │       └── retweet_post_usecase.dart
+│       └── presentation/
+│           ├── pages/
+│           │   ├── home_page.dart
+│           │   └── post_details_screen.dart
+│           ├── viewmodels/
+│           │   ├── home_view_model.dart
+│           │   └── post_details_view_model.dart
+│           └── widgets/
+│               └── post_row.dart
+├── models/
+│   └── post.dart
+├── services/
+│   └── api_service.dart
+└── main.dart
 ```
 
-## Architecture Principles
+## 🏗️ Architecture Layers
 
-### 1. Feature-Based Organization
-- Each feature has its own folder with presentation, domain, and data layers
-- Features are self-contained and can be developed independently
-- Clear separation of concerns between features
+### 1. **Presentation Layer** (UI)
+- **Pages**: Flutter widgets that represent screens
+- **ViewModels**: Business logic and state management
+- **Widgets**: Reusable UI components
 
-### 2. Clean Architecture
-- **Presentation Layer**: UI components (pages, widgets)
-- **Domain Layer**: Business logic and use cases (to be added)
-- **Data Layer**: Data sources and repositories (to be added)
+### 2. **Domain Layer** (Business Logic)
+- **Use Cases**: Single responsibility business operations
+- **Repository Interfaces**: Contracts for data operations
 
-### 3. Shared Resources
-- **Core**: App-wide constants, themes, and configurations
-- **Shared**: Reusable widgets and components
-- **Utils**: Helper functions and utilities
+### 3. **Data Layer** (Data Management)
+- **Repository Implementations**: Concrete data access logic
+- **Services**: External API calls and data sources
 
-### 4. Navigation
-- Centralized navigation management
-- Tab-based navigation structure
+## 🔧 Key Components
 
-## Key Components
+### BaseViewModel
+```dart
+abstract class BaseViewModel extends ChangeNotifier {
+  bool get isLoading;
+  String? get errorMessage;
+  
+  void setLoading(bool loading);
+  void setError(String? error);
+  Future<T?> executeAsync<T>(Future<T> Function() operation);
+}
+```
 
-### Core
-- `app_constants.dart`: Centralized constants for colors, dimensions, and text styles
-- `app_theme.dart`: Theme configuration for light/dark modes
+### Repository Pattern
+```dart
+abstract class PostRepository extends SearchableRepository<Post> {
+  Future<List<Post>> getHomePosts();
+  Future<Post> likePost(String postId);
+  Future<Post> retweetPost(String postId);
+}
+```
 
-### Features
-- **Home**: Main landing page with welcome content
-- **Search**: Search functionality with input field and results
+### Use Cases
+```dart
+class GetPostsUseCase {
+  final PostRepository _repository;
+  
+  Future<List<Post>> execute() async {
+    return await _repository.getHomePosts();
+  }
+}
+```
 
-### Services
-- `api_service.dart`: HTTP client for API calls with error handling
+## 🚀 Dependency Injection
 
-### Models
-- `search_result.dart`: Data model for search results with JSON serialization
+Using **GetIt** for dependency injection:
 
-### Shared Widgets
-- `LoadingWidget`: Loading indicator
-- `ErrorWidget`: Error display with retry functionality
-- `EmptyStateWidget`: Empty state display
+```dart
+final GetIt serviceLocator = GetIt.instance;
 
-### Utils
-- `helpers.dart`: Utility functions for date formatting, validation, and UI helpers
+// Register dependencies
+serviceLocator.registerLazySingleton<PostRepository>(
+  () => PostRepositoryImpl(serviceLocator<ApiService>()),
+);
 
-## Best Practices
+serviceLocator.registerFactory(() => HomeViewModel(
+  getPostsUseCase: serviceLocator<GetPostsUseCase>(),
+));
+```
 
-1. **Import Organization**: Use relative imports for local files, package imports for external dependencies
-2. **Naming Conventions**: Use snake_case for files, PascalCase for classes
-3. **Separation of Concerns**: Keep UI, business logic, and data access separate
-4. **Reusability**: Create shared widgets for common UI patterns
-5. **Constants**: Centralize app-wide constants in the core folder
+## 📱 State Management
 
-## Future Enhancements
+Using **Provider** for reactive state management:
 
-- Add state management (Provider, Bloc, or Riverpod)
-- Implement proper error handling and logging
-- Add unit and widget tests
-- Implement caching and offline support
-- Add internationalization support
+```dart
+Consumer<HomeViewModel>(
+  builder: (context, viewModel, child) {
+    return ListView.builder(
+      itemCount: viewModel.posts.length,
+      itemBuilder: (context, index) {
+        return PostRow(post: viewModel.posts[index]);
+      },
+    );
+  },
+)
+```
+
+## 🔄 Data Flow
+
+1. **UI** → **ViewModel**: User interactions trigger ViewModel methods
+2. **ViewModel** → **Use Case**: ViewModel calls Use Cases for business logic
+3. **Use Case** → **Repository**: Use Cases interact with repositories
+4. **Repository** → **Service**: Repositories use services for data access
+5. **Service** → **API**: Services make HTTP calls to external APIs
+
+## 🎯 Benefits
+
+- **Separation of Concerns**: Clear boundaries between UI, business logic, and data
+- **Testability**: Each layer can be tested independently
+- **Maintainability**: Easy to modify and extend
+- **Reusability**: Components can be reused across features
+- **Scalability**: Easy to add new features following the same pattern
+
+## 🧪 Testing Strategy
+
+- **Unit Tests**: ViewModels, Use Cases, Repositories
+- **Widget Tests**: UI components
+- **Integration Tests**: End-to-end user flows
+
+## 📦 Dependencies
+
+- `provider`: State management
+- `get_it`: Dependency injection
+- `rxdart`: Reactive programming
+- `logger`: Logging
+- `http`: API calls
+
+## 🔄 Migration from Previous Architecture
+
+The app has been refactored from a simple widget-based approach to a proper MVVM architecture:
+
+- ✅ Removed business logic from UI widgets
+- ✅ Introduced ViewModels for state management
+- ✅ Implemented repository pattern for data access
+- ✅ Added use cases for business operations
+- ✅ Set up dependency injection
+- ✅ Added proper error handling and loading states
