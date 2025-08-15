@@ -10,8 +10,6 @@ class MainTabBar extends StatefulWidget {
 }
 
 class _MainTabBarState extends State<MainTabBar> {
-  int _selectedIndex = 0;
-
   static const List<Widget> _pages = <Widget>[
     HomePage(),
     SearchPage(),
